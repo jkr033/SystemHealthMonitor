@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-import argparse, json, os, shutil, sys, time
+import argparse
+import json
+import os
+import shutil
+import sys
+import time
 from datetime import datetime
 
 def cpu_percent(interval=1.0):
@@ -12,15 +17,15 @@ def cpu_percent(interval=1.0):
     idle1, total1 = read()
     time.sleep(interval)
     idle2, total2 = read()
-    delta = total2 - total1    
+    delta = total2 - total1
     return round(100 * (1 -(idle2 - idle1) / delta), 1) if delta else 0.0
 
 def memory_percent():
     info = {}
     with open("/proc/meminfo") as f:
-        fr line in f:
-        key, value = line.split(":")
-        info[key] = int(value.split()[0])
+        for line in f:
+            key, value = line.split(":")
+            info[key] = int(value.split()[0])
     used = info["MemTotal"] - info["MemAvailable"]
     return round(100 * used / info["MemTotal"], 1)
 
@@ -30,36 +35,35 @@ def disk_percent(path="/"):
 
 def uptime_hours():
     with open("/proc/uptime") as f:
-        return roun(float(f.read().split()[0]) / 3600, 1)
+        return round(float(f.read().split()[0]) / 3600, 1)
 
 def collect(disk_path):
     load1, load5, load15 = os.getloadavg()
-    return 
-    {
-        "timestamp":
-        "cpu_percent":
-        "memory.percent":
-        "disk_percent":
-        "load_1m"
-        "cpu_cores":
-        "uptime_hours": uptime_hours()    
+    return {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "cpu_percent": cpu_percent(),
+        "memory_percent": memory_percent(),
+        "disk_percent": disk_percent(disk_path),
+        "load_1m": round(load1, 2),
+        "cpu_cores": os.cpu_count(),
+        "uptime_hours": uptime_hours(),
     }
 
 def check(metrics, args):
     warnings = []
     if metrics["cpu_percent"] > args.cpu:
-        warnings.append(f"CPU high: {metrics['cpu_percent']}% (limit {args.cpu}%) ")
+        warnings.append(f"CPU high: {metrics['cpu_percent']}% (limit {args.cpu}%)")
     if metrics["memory_percent"] > args.mem:
         warnings.append(f"Memory high: {metrics['memory_percent']}% (limit {args.mem}%)")
     if metrics["disk_percent"] > args.disk:
         warnings.append(f"Disk high: {metrics['disk_percent']}% (limit {args.disk}%)")
     if metrics["load_1m"] > metrics["cpu_cores"]:
         warnings.append(f"Load average {metrics['load_1m']} exceeds {metrics['cpu_cores']} cores")
-    return warnings  
+    return warnings
 
 
 
-    def main():
+def main():
     p = argparse.ArgumentParser(description="Simple Linux health monitor")
     p.add_argument("--cpu", type=float, default=85, help="CPU %% warning threshold")
     p.add_argument("--mem", type=float, default=85, help="Memory %% warning threshold")
@@ -90,8 +94,8 @@ def check(metrics, args):
         with open(args.log, "a") as f:
             f.write(json.dumps(metrics) + "\n")
 
-    sys.exit(1 if warnings else 0) 
+    sys.exit(1 if warnings else 0)
 
 
 if __name__ == "__main__":
-    main()    
+    main()
